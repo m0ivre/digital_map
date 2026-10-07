@@ -56,12 +56,61 @@ npx serve .
 
 Dann `http://localhost:8080` öffnen.
 
-## Auf dem Smartphone nutzen / installieren
+## Im lokalen Netz auf dem Smartphone testen
 
-Für Kamera- und GPS-Zugriff unterwegs muss die App über HTTPS erreichbar
-sein (z. B. per Deploy auf GitHub Pages, Netlify, Vercel, oder einem eigenen
-Server mit TLS-Zertifikat). Danach im mobilen Browser öffnen und über
-"Zum Startbildschirm hinzufügen" / den Install-Button installieren.
+Kamera, Geolocation und der Service Worker funktionieren nur in einem
+**sicheren Kontext** – `https://` oder `localhost`. `http://<lan-ip>:port`
+reicht dafür **nicht**, auch nicht im eigenen WLAN. Für einen echten Test auf
+dem Handy gibt es daher einen kleinen HTTPS-Server mit selbstsigniertem
+Zertifikat:
+
+```bash
+node serve-https.js
+```
+
+Das Zertifikat in `certs/` wurde bereits für `localhost`, `127.0.0.1` und die
+aktuellen LAN-IPs dieses Rechners erzeugt. Falls sich die IP-Adresse deines
+Rechners ändert (anderes WLAN, neuer DHCP-Lease) oder das Zertifikat
+abgelaufen ist, neu erzeugen mit:
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes \
+  -keyout certs/dev-key.pem -out certs/dev-cert.pem \
+  -days 820 -subj "/CN=georef-standort.local" \
+  -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:<deine-lan-ip>"
+```
+
+(Die eigene LAN-IP steht z. B. in `ipconfig` / `ifconfig` unter "IPv4-Adresse".)
+
+Nach dem Start zeigt das Terminal die passende Adresse an, z. B.:
+
+```
+https://192.168.178.27:8443
+```
+
+1. Smartphone muss im **selben WLAN** sein wie dieser Rechner.
+2. Diese Adresse im mobilen Browser öffnen.
+3. Der Browser warnt vor dem selbstsignierten Zertifikat ("Verbindung ist
+   nicht privat" o. ä.) – das ist erwartet. Auf "Erweitert" / "Details" und
+   dann "Trotzdem fortfahren" / "Weiter zu … (unsicher)" tippen. Diese
+   Warnung erscheint nur, weil kein echtes (von einer öffentlichen Stelle
+   signiertes) Zertifikat verwendet wird – für einen lokalen Test ist das
+   unbedenklich.
+4. Danach fragt die App wie gewohnt nach Kamera- und Standortzugriff.
+
+Windows fragt beim allerersten Start evtl. per Firewall-Dialog, ob Node.js
+eingehende Verbindungen im (privaten) Netzwerk empfangen darf – das bitte
+erlauben, sonst kommt das Handy nicht durch.
+
+Zum Beenden des Servers: `Strg+C` im Terminal.
+
+## Auf dem Smartphone dauerhaft installieren
+
+Für die Nutzung unterwegs (nicht nur zum Testen im eigenen WLAN) muss die
+App über eine **echte** HTTPS-Adresse erreichbar sein, z. B. per Deploy auf
+GitHub Pages, Netlify, Vercel, oder einem eigenen Server mit TLS-Zertifikat.
+Danach im mobilen Browser öffnen und über "Zum Startbildschirm hinzufügen" /
+den Install-Button installieren.
 
 ## Technische Hinweise
 
