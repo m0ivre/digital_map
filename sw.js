@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'georef-standort-v1';
+const CACHE_NAME = 'georef-standort-v2';
 const PRECACHE_URLS = [
   './',
   './index.html',
@@ -9,12 +9,15 @@ const PRECACHE_URLS = [
   './db.js',
   './geo.js',
   './panzoom.js',
+  './overlay-align.js',
   './pdf-import.js',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-maskable.svg',
   './vendor/pdf.min.js',
   './vendor/pdf.worker.min.js',
+  './vendor/leaflet.js',
+  './vendor/leaflet.css',
 ];
 
 self.addEventListener('install', (event) => {

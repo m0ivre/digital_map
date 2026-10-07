@@ -10,6 +10,7 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/icon.svg" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="vendor/leaflet.css" />
 </head>
 <body>
 
@@ -55,20 +56,72 @@
   <section id="screen-calibrate" class="screen">
     <header class="app-header">
       <button id="btn-calibrate-cancel" class="icon-btn" title="Abbrechen">←</button>
-      <h1>Referenzpunkte setzen</h1>
-      <button id="btn-calibrate-fit" class="icon-btn" title="Einpassen">⤢</button>
+      <h1>Karte georeferenzieren</h1>
+      <span style="width:40px"></span>
     </header>
-    <main class="content no-pad">
-      <div class="map-viewport" id="calibrate-viewport">
-        <div class="map-pannable" id="calibrate-pannable">
-          <img id="calibrate-image" alt="Importierte Karte" draggable="false" />
-        </div>
+
+    <div class="calib-tabs">
+      <button class="tab-btn active" id="tab-btn-align" data-tab="align">Auf Grundkarte ausrichten</button>
+      <button class="tab-btn" id="tab-btn-manual" data-tab="manual">Punkte manuell setzen</button>
+    </div>
+
+    <!-- --- Tab 1: visuell auf Grundkarte ausrichten --- -->
+    <div class="calib-tab-pane active" id="tab-align">
+      <div class="map-align-wrap">
+        <div id="align-map"></div>
+        <div id="align-overlay" class="align-overlay"><img id="align-image" alt="" draggable="false" /></div>
       </div>
-    </main>
-    <div class="calibration-panel">
-      <p class="hint" id="calibration-hint">Tippe auf einen markanten Punkt im Bild und ordne ihm reale GPS-Koordinaten zu.</p>
-      <ul id="calibration-points" class="point-list"></ul>
-      <button id="btn-save-map" class="btn primary full" disabled>Karte speichern</button>
+      <div class="align-controls">
+        <div class="control-row">
+          <select id="basemap-select">
+            <option value="osm">OpenStreetMap</option>
+            <option value="topo">OpenTopoMap (Gelände)</option>
+            <option value="hot">Humanitarian (HOT)</option>
+            <option value="satellite">Satellit (Esri)</option>
+          </select>
+          <button id="btn-locate-me" class="icon-btn" title="Zu meinem Standort springen">📍</button>
+          <button id="btn-align-reset" class="icon-btn" title="Bild zurücksetzen">↺</button>
+        </div>
+        <label class="slider-row">
+          <span>Durchsichtigkeit</span>
+          <input type="range" id="opacity-slider" min="10" max="100" value="60" />
+        </label>
+        <label class="slider-row">
+          <span>Größe</span>
+          <input type="range" id="scale-slider" min="2" max="1000" value="100" />
+        </label>
+        <label class="slider-row">
+          <span>Drehung</span>
+          <input type="range" id="rotation-slider" min="-180" max="180" value="0" step="0.5" />
+        </label>
+        <div class="mode-toggle">
+          <button id="mode-btn-map" class="btn secondary active" data-mode="map">🗺 Karte bewegen</button>
+          <button id="mode-btn-image" class="btn secondary" data-mode="image">🖼 Bild ausrichten</button>
+        </div>
+        <p class="hint">Im Modus "Karte bewegen" kannst du die Grundkarte verschieben/zoomen. Im Modus
+          "Bild ausrichten" kannst du dein importiertes Bild per Ziehen verschieben und mit zwei Fingern
+          skalieren/drehen (oder die Regler nutzen), bis es zur Grundkarte passt.</p>
+        <button id="btn-confirm-align" class="btn primary full">✓ Ausrichtung übernehmen &amp; speichern</button>
+      </div>
+    </div>
+
+    <!-- --- Tab 2: manuelle Referenzpunkte --- -->
+    <div class="calib-tab-pane" id="tab-manual">
+      <main class="content no-pad">
+        <div class="map-viewport" id="calibrate-viewport">
+          <div class="map-pannable" id="calibrate-pannable">
+            <img id="calibrate-image" alt="Importierte Karte" draggable="false" />
+          </div>
+        </div>
+      </main>
+      <div class="calibration-panel">
+        <div class="control-row">
+          <button id="btn-calibrate-fit" class="btn secondary">⤢ Einpassen</button>
+        </div>
+        <p class="hint" id="calibration-hint">Tippe auf einen markanten Punkt im Bild und ordne ihm reale GPS-Koordinaten zu.</p>
+        <ul id="calibration-points" class="point-list"></ul>
+        <button id="btn-save-map" class="btn primary full" disabled>Karte speichern</button>
+      </div>
     </div>
   </section>
 
@@ -118,9 +171,11 @@
     </form>
   </dialog>
 
+  <script src="vendor/leaflet.js"></script>
   <script src="geo.js"></script>
   <script src="db.js"></script>
   <script src="panzoom.js"></script>
+  <script src="overlay-align.js"></script>
   <script src="pdf-import.js"></script>
   <script src="app.js"></script>
 </body>

@@ -11,6 +11,36 @@ const state = {
   watchId: null,
   follow: true,
   objectUrls: [],
+  alignMap: null,
+  overlayAlign: null,
+  currentTileLayer: null,
+  manualPanzoomReady: false,
+};
+
+const BASEMAPS = {
+  osm: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    options: { maxZoom: 19, attribution: '© OpenStreetMap-Mitwirkende' },
+  },
+  topo: {
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    options: {
+      maxZoom: 17,
+      attribution: 'Kartendaten: © OpenStreetMap-Mitwirkende, SRTM | Darstellung: © OpenTopoMap (CC-BY-SA)',
+    },
+  },
+  hot: {
+    url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+    options: {
+      maxZoom: 19,
+      subdomains: ['a', 'b', 'c'],
+      attribution: '© OpenStreetMap-Mitwirkende, Stil: Humanitarian OpenStreetMap Team',
+    },
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 19, attribution: 'Tiles © Esri — Esri, Maxar, Earthstar Geographics' },
+  },
 };
 
 const screens = {
@@ -131,9 +161,142 @@ document.getElementById('camera-input').addEventListener('change', (e) => {
 function beginCalibration() {
   state.calibrationPoints = [];
   state.pendingPin = null;
+  state.manualPanzoomReady = false;
   renderCalibrationPointList();
   showScreen('calibrate');
+  switchCalibTab('align');
+  initAlignTab();
+}
 
+// --- Tab-Umschaltung ---
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => switchCalibTab(btn.dataset.tab));
+});
+
+function switchCalibTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('tab-align').classList.toggle('active', tab === 'align');
+  document.getElementById('tab-manual').classList.toggle('active', tab === 'manual');
+
+  if (tab === 'align' && state.alignMap) {
+    setTimeout(() => state.alignMap.invalidateSize(), 0);
+  }
+  if (tab === 'manual' && !state.manualPanzoomReady) {
+    initManualCalibration();
+  }
+}
+
+// --- Tab 1: visuelle Ausrichtung auf Grundkarte ---
+function setBasemapLayer(map, key) {
+  if (state.currentTileLayer) map.removeLayer(state.currentTileLayer);
+  const cfg = BASEMAPS[key] || BASEMAPS.osm;
+  state.currentTileLayer = L.tileLayer(cfg.url, cfg.options).addTo(map);
+}
+
+function syncSlidersFromOverlay() {
+  const overlay = state.overlayAlign;
+  if (!overlay) return;
+  const scalePercent = Math.min(1000, Math.max(1, Math.round(overlay.getScale() * 100)));
+  document.getElementById('scale-slider').value = scalePercent;
+  let deg = overlay.getRotationDeg() % 360;
+  if (deg > 180) deg -= 360;
+  if (deg < -180) deg += 360;
+  document.getElementById('rotation-slider').value = deg.toFixed(1);
+}
+
+function setAlignMode(mode) {
+  document.getElementById('mode-btn-map').classList.toggle('active', mode === 'map');
+  document.getElementById('mode-btn-image').classList.toggle('active', mode === 'image');
+  state.overlayAlign?.setMode(mode);
+}
+
+function initAlignTab() {
+  if (state.alignMap) {
+    state.alignMap.remove();
+    state.alignMap = null;
+    state.currentTileLayer = null;
+  }
+
+  document.getElementById('align-image').src = state.pendingImport.url;
+
+  const map = L.map('align-map', { attributionControl: true }).setView([51.1657, 10.4515], 6);
+  setBasemapLayer(map, document.getElementById('basemap-select').value);
+  state.alignMap = map;
+
+  const overlayEl = document.getElementById('align-overlay');
+  const overlay = new OverlayAlign(map, overlayEl, state.pendingImport.width, state.pendingImport.height);
+  overlay.setOpacity(document.getElementById('opacity-slider').value / 100);
+  overlay.onChange = syncSlidersFromOverlay;
+  state.overlayAlign = overlay;
+
+  requestAnimationFrame(() => {
+    map.invalidateSize();
+    overlay.reset();
+    syncSlidersFromOverlay();
+  });
+
+  setAlignMode('map');
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        map.setView([pos.coords.latitude, pos.coords.longitude], 17);
+        overlay.reset();
+        syncSlidersFromOverlay();
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }
+}
+
+document.getElementById('basemap-select').addEventListener('change', (e) => {
+  if (state.alignMap) setBasemapLayer(state.alignMap, e.target.value);
+});
+
+document.getElementById('mode-btn-map').addEventListener('click', () => setAlignMode('map'));
+document.getElementById('mode-btn-image').addEventListener('click', () => setAlignMode('image'));
+
+document.getElementById('opacity-slider').addEventListener('input', (e) => {
+  state.overlayAlign?.setOpacity(e.target.value / 100);
+});
+document.getElementById('scale-slider').addEventListener('input', (e) => {
+  state.overlayAlign?.setScale(e.target.value / 100);
+});
+document.getElementById('rotation-slider').addEventListener('input', (e) => {
+  state.overlayAlign?.setRotationDeg(parseFloat(e.target.value));
+});
+
+document.getElementById('btn-locate-me').addEventListener('click', () => {
+  if (!navigator.geolocation || !state.alignMap) return;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => state.alignMap.setView([pos.coords.latitude, pos.coords.longitude], 17),
+    (err) => alert('Standort nicht verfügbar: ' + err.message),
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+});
+
+document.getElementById('btn-align-reset').addEventListener('click', () => {
+  state.overlayAlign?.reset();
+  syncSlidersFromOverlay();
+});
+
+document.getElementById('btn-confirm-align').addEventListener('click', () => {
+  finalizeSaveMap(state.overlayAlign?.getCornerCalibrationPoints());
+});
+
+function teardownCalibration() {
+  if (state.alignMap) {
+    state.alignMap.remove();
+    state.alignMap = null;
+    state.currentTileLayer = null;
+  }
+  state.overlayAlign = null;
+}
+
+// --- Tab 2: manuelle Referenzpunkte (bestehender Ablauf) ---
+function initManualCalibration() {
+  state.manualPanzoomReady = true;
   const viewport = document.getElementById('calibrate-viewport');
   const pannable = document.getElementById('calibrate-pannable');
   const img = document.getElementById('calibrate-image');
@@ -247,6 +410,7 @@ document.getElementById('pin-dialog-form').addEventListener('submit', (e) => {
 
 document.getElementById('btn-calibrate-cancel').addEventListener('click', () => {
   if (confirm('Kalibrierung verwerfen?')) {
+    teardownCalibration();
     revokeCurrentImport();
     showScreen('home');
   }
@@ -260,26 +424,34 @@ function revokeCurrentImport() {
   state.pendingImport = null;
 }
 
-document.getElementById('btn-save-map').addEventListener('click', async () => {
-  if (state.calibrationPoints.length < 2) return;
+async function finalizeSaveMap(points) {
+  if (!points || points.length < 2) {
+    alert('Mindestens 2 Referenzpunkte nötig.');
+    return;
+  }
   const name = prompt('Name für diese Karte:', 'Karte ' + new Date().toLocaleDateString('de-DE'));
   if (!name) return;
 
-  const transform = buildTransformFromPoints(state.calibrationPoints);
+  const transform = buildTransformFromPoints(points);
   const record = {
     id: makeId(),
     name,
     imageBlob: state.pendingImport.blob,
     width: state.pendingImport.width,
     height: state.pendingImport.height,
-    calibrationPoints: state.calibrationPoints,
+    calibrationPoints: points,
     transform,
     createdAt: Date.now(),
   };
   await saveMap(record);
+  teardownCalibration();
   revokeCurrentImport();
   showScreen('home');
   renderHome();
+}
+
+document.getElementById('btn-save-map').addEventListener('click', () => {
+  finalizeSaveMap(state.calibrationPoints);
 });
 
 // ---------- Ansichts-Screen (Live-Standort) ----------
