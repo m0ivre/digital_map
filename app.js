@@ -197,14 +197,39 @@ function setBasemapLayer(map, key) {
 function syncSlidersFromOverlay() {
   const overlay = state.overlayAlign;
   if (!overlay) return;
-  const scalePercent = Math.min(1000, Math.max(1, Math.round(overlay.getScale() * 100)));
-  document.getElementById('scale-slider').value = scalePercent;
+
+  const scaleXPercent = clamp(Math.round(overlay.getScaleX() * 100), 5, 400);
+  const scaleYPercent = clamp(Math.round(overlay.getScaleY() * 100), 5, 400);
+  document.getElementById('scale-x-slider').value = scaleXPercent;
+  document.getElementById('scale-y-slider').value = scaleYPercent;
+  document.getElementById('scale-x-value').textContent = scaleXPercent + '%';
+  document.getElementById('scale-y-value').textContent = scaleYPercent + '%';
+
   let deg = overlay.getRotationDeg() % 360;
   if (deg > 180) deg -= 360;
   if (deg < -180) deg += 360;
   document.getElementById('rotation-slider').value = deg.toFixed(1);
+  document.getElementById('rotation-value').textContent = deg.toFixed(1) + '°';
+
   updateAlignDebug();
 }
+
+function clamp(v, min, max) {
+  return Math.min(max, Math.max(min, v));
+}
+
+// Nudge-Buttons (−/+) neben den Reglern: präzise Einzelschritte statt Ziehen.
+document.querySelectorAll('.nudge-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const slider = document.getElementById(btn.dataset.slider);
+    const delta = parseFloat(btn.dataset.delta);
+    const min = parseFloat(slider.min);
+    const max = parseFloat(slider.max);
+    const next = clamp(parseFloat(slider.value) + delta, min, max);
+    slider.value = next;
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+});
 
 // Temporäre Diagnose-Anzeige, um Layout-Probleme ohne Browser-Konsole des
 // Testgeräts nachvollziehen zu können.
@@ -215,7 +240,7 @@ function updateAlignDebug() {
   const size = state.alignMap.getSize();
   el.textContent =
     `map=${size.x}x${size.y} cx=${Math.round(overlay.cx)} cy=${Math.round(overlay.cy)} ` +
-    `scale=${overlay.scale.toFixed(4)} nat=${overlay.naturalWidth}x${overlay.naturalHeight} ` +
+    `scaleX=${overlay.scaleX.toFixed(4)} scaleY=${overlay.scaleY.toFixed(4)} nat=${overlay.naturalWidth}x${overlay.naturalHeight} ` +
     `opacity=${overlay.el.style.opacity} pointerEvents=${overlay.el.style.pointerEvents}`;
 }
 
@@ -290,12 +315,19 @@ document.getElementById('opacity-slider').addEventListener('input', (e) => {
   state.overlayAlign?.setOpacity(e.target.value / 100);
   updateAlignDebug();
 });
-document.getElementById('scale-slider').addEventListener('input', (e) => {
-  state.overlayAlign?.setScale(e.target.value / 100);
+document.getElementById('scale-x-slider').addEventListener('input', (e) => {
+  state.overlayAlign?.setScaleX(e.target.value / 100);
+  document.getElementById('scale-x-value').textContent = e.target.value + '%';
+  updateAlignDebug();
+});
+document.getElementById('scale-y-slider').addEventListener('input', (e) => {
+  state.overlayAlign?.setScaleY(e.target.value / 100);
+  document.getElementById('scale-y-value').textContent = e.target.value + '%';
   updateAlignDebug();
 });
 document.getElementById('rotation-slider').addEventListener('input', (e) => {
   state.overlayAlign?.setRotationDeg(parseFloat(e.target.value));
+  document.getElementById('rotation-value').textContent = parseFloat(e.target.value).toFixed(1) + '°';
   updateAlignDebug();
 });
 

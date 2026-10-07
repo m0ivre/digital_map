@@ -11,7 +11,8 @@ class OverlayAlign {
 
     this.cx = 0; // Mittelpunkt des Overlays, in Container-Pixel-Koordinaten der Karte
     this.cy = 0;
-    this.scale = 1; // Overlay-Breite = naturalWidth * scale
+    this.scaleX = 1; // Overlay-Breite = naturalWidth * scaleX
+    this.scaleY = 1; // Overlay-Höhe = naturalHeight * scaleY
     this.angle = 0; // Radiant
 
     this.mode = 'map'; // 'map' | 'image'
@@ -55,7 +56,9 @@ class OverlayAlign {
     this.cx = size.x / 2;
     this.cy = size.y / 2;
     const targetWidth = Math.min(size.x, size.y) * 0.7;
-    this.scale = targetWidth / Math.max(this.naturalWidth, this.naturalHeight);
+    const s = targetWidth / Math.max(this.naturalWidth, this.naturalHeight);
+    this.scaleX = s;
+    this.scaleY = s;
     this.angle = 0;
     this._render();
   }
@@ -64,13 +67,22 @@ class OverlayAlign {
     this.el.style.opacity = String(v);
   }
 
-  setScale(v) {
-    this.scale = Math.max(0.02, v);
+  setScaleX(v) {
+    this.scaleX = Math.max(0.02, v);
     this._render();
   }
 
-  getScale() {
-    return this.scale;
+  setScaleY(v) {
+    this.scaleY = Math.max(0.02, v);
+    this._render();
+  }
+
+  getScaleX() {
+    return this.scaleX;
+  }
+
+  getScaleY() {
+    return this.scaleY;
   }
 
   setRotationDeg(deg) {
@@ -103,7 +115,17 @@ class OverlayAlign {
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       const angle = Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x);
       const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
-      this.gestureStart = { type: 'pinch', dist, angle, mid, scale: this.scale, angle0: this.angle, cx: this.cx, cy: this.cy };
+      this.gestureStart = {
+        type: 'pinch',
+        dist,
+        angle,
+        mid,
+        scaleX: this.scaleX,
+        scaleY: this.scaleY,
+        angle0: this.angle,
+        cx: this.cx,
+        cy: this.cy,
+      };
     } else {
       this.gestureStart = null;
     }
@@ -128,9 +150,12 @@ class OverlayAlign {
       const angle = Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x);
       const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
 
+      // Zwei Finger skalieren Breite+Höhe gemeinsam (gleicher Faktor, Seitenverhältnis
+      // bleibt erhalten) – für unabhängige Breite/Höhe gibt es die beiden Regler.
       const scaleFactor = dist / this.gestureStart.dist;
       const deltaAngle = angle - this.gestureStart.angle;
-      this.scale = Math.max(0.02, this.gestureStart.scale * scaleFactor);
+      this.scaleX = Math.max(0.02, this.gestureStart.scaleX * scaleFactor);
+      this.scaleY = Math.max(0.02, this.gestureStart.scaleY * scaleFactor);
       this.angle = this.gestureStart.angle0 + deltaAngle;
 
       // Mittelpunkt so verschieben, dass der ursprüngliche Zwei-Finger-Mittelpunkt
@@ -160,14 +185,15 @@ class OverlayAlign {
     if (this.mode !== 'image') return;
     e.preventDefault();
     const factor = Math.exp(-e.deltaY * 0.0015);
-    this.setScale(this.scale * factor);
+    this.setScaleX(this.scaleX * factor);
+    this.setScaleY(this.scaleY * factor);
     this._notifyChange();
   }
 
   _render() {
     this.el.style.left = this.cx + 'px';
     this.el.style.top = this.cy + 'px';
-    this.el.style.transform = `translate(-50%, -50%) rotate(${this.angle}rad) scale(${this.scale})`;
+    this.el.style.transform = `translate(-50%, -50%) rotate(${this.angle}rad) scale(${this.scaleX}, ${this.scaleY})`;
   }
 
   _notifyChange() {
@@ -186,8 +212,8 @@ class OverlayAlign {
     const cosA = Math.cos(this.angle), sinA = Math.sin(this.angle);
 
     return corners.map((pt) => {
-      const dx = (pt.px - w / 2) * this.scale;
-      const dy = (pt.py - h / 2) * this.scale;
+      const dx = (pt.px - w / 2) * this.scaleX;
+      const dy = (pt.py - h / 2) * this.scaleY;
       const rx = dx * cosA - dy * sinA;
       const ry = dx * sinA + dy * cosA;
       const containerX = this.cx + rx;

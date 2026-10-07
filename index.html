@@ -86,14 +86,33 @@
           <span>Durchsichtigkeit</span>
           <input type="range" id="opacity-slider" min="10" max="100" value="60" />
         </label>
-        <label class="slider-row">
-          <span>Größe</span>
-          <input type="range" id="scale-slider" min="2" max="1000" value="100" />
-        </label>
-        <label class="slider-row">
-          <span>Drehung</span>
-          <input type="range" id="rotation-slider" min="-180" max="180" value="0" step="0.5" />
-        </label>
+
+        <div class="precision-row">
+          <div class="precision-label"><span>Breite</span><span class="precision-value" id="scale-x-value">100%</span></div>
+          <div class="precision-slider">
+            <button class="nudge-btn" data-slider="scale-x-slider" data-delta="-1" title="Etwas schmaler">−</button>
+            <input type="range" id="scale-x-slider" min="5" max="400" value="100" step="1" />
+            <button class="nudge-btn" data-slider="scale-x-slider" data-delta="1" title="Etwas breiter">+</button>
+          </div>
+        </div>
+
+        <div class="precision-row">
+          <div class="precision-label"><span>Höhe</span><span class="precision-value" id="scale-y-value">100%</span></div>
+          <div class="precision-slider">
+            <button class="nudge-btn" data-slider="scale-y-slider" data-delta="-1" title="Etwas niedriger">−</button>
+            <input type="range" id="scale-y-slider" min="5" max="400" value="100" step="1" />
+            <button class="nudge-btn" data-slider="scale-y-slider" data-delta="1" title="Etwas höher">+</button>
+          </div>
+        </div>
+
+        <div class="precision-row">
+          <div class="precision-label"><span>Drehung</span><span class="precision-value" id="rotation-value">0°</span></div>
+          <div class="precision-slider">
+            <button class="nudge-btn" data-slider="rotation-slider" data-delta="-0.5" title="Etwas gegen den Uhrzeigersinn">−</button>
+            <input type="range" id="rotation-slider" min="-180" max="180" value="0" step="0.5" />
+            <button class="nudge-btn" data-slider="rotation-slider" data-delta="0.5" title="Etwas im Uhrzeigersinn">+</button>
+          </div>
+        </div>
         <div class="mode-toggle">
           <button id="mode-btn-map" class="btn secondary active" data-mode="map">🗺 Karte bewegen</button>
           <button id="mode-btn-image" class="btn secondary" data-mode="image">🖼 Bild ausrichten</button>
