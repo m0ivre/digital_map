@@ -293,8 +293,6 @@ body { display: flex; flex-direction: column; }
 }
 .nudge-btn:active { background: var(--accent); color: #04202c; }
 
-.mode-toggle { display: flex; gap: 8px; }
-.mode-toggle .btn { flex: 1; }
 .debug-text { font-family: monospace; font-size: 0.7rem; color: var(--text-dim); word-break: break-all; margin: 0; }
 
 dialog {

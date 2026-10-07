@@ -88,20 +88,11 @@
         </label>
 
         <div class="precision-row">
-          <div class="precision-label"><span>Breite</span><span class="precision-value" id="scale-x-value">100%</span></div>
+          <div class="precision-label"><span>Größe</span><span class="precision-value" id="scale-value">100%</span></div>
           <div class="precision-slider">
-            <button class="nudge-btn" data-slider="scale-x-slider" data-delta="-1" title="Etwas schmaler">−</button>
-            <input type="range" id="scale-x-slider" min="5" max="400" value="100" step="1" />
-            <button class="nudge-btn" data-slider="scale-x-slider" data-delta="1" title="Etwas breiter">+</button>
-          </div>
-        </div>
-
-        <div class="precision-row">
-          <div class="precision-label"><span>Höhe</span><span class="precision-value" id="scale-y-value">100%</span></div>
-          <div class="precision-slider">
-            <button class="nudge-btn" data-slider="scale-y-slider" data-delta="-1" title="Etwas niedriger">−</button>
-            <input type="range" id="scale-y-slider" min="5" max="400" value="100" step="1" />
-            <button class="nudge-btn" data-slider="scale-y-slider" data-delta="1" title="Etwas höher">+</button>
+            <button class="nudge-btn" data-slider="scale-slider" data-delta="-1" title="Etwas kleiner">−</button>
+            <input type="range" id="scale-slider" min="10" max="300" value="100" step="1" />
+            <button class="nudge-btn" data-slider="scale-slider" data-delta="1" title="Etwas größer">+</button>
           </div>
         </div>
 
@@ -113,13 +104,8 @@
             <button class="nudge-btn" data-slider="rotation-slider" data-delta="0.5" title="Etwas im Uhrzeigersinn">+</button>
           </div>
         </div>
-        <div class="mode-toggle">
-          <button id="mode-btn-map" class="btn secondary active" data-mode="map">🗺 Karte bewegen</button>
-          <button id="mode-btn-image" class="btn secondary" data-mode="image">🖼 Bild ausrichten</button>
-        </div>
-        <p class="hint">Im Modus "Karte bewegen" kannst du die Grundkarte verschieben/zoomen. Im Modus
-          "Bild ausrichten" kannst du dein importiertes Bild per Ziehen verschieben und mit zwei Fingern
-          skalieren/drehen (oder die Regler nutzen), bis es zur Grundkarte passt.</p>
+        <p class="hint">Ziehe direkt auf dem Bild, um es zu verschieben, oder nutze mit zwei Fingern
+          Pinch-Gesten zum Skalieren/Drehen (oder die Regler). Ziehen daneben bewegt/zoomt die Grundkarte.</p>
         <button id="btn-confirm-align" class="btn primary full">✓ Ausrichtung übernehmen &amp; speichern</button>
         <p id="align-debug" class="debug-text"></p>
       </div>

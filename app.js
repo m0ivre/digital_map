@@ -198,12 +198,9 @@ function syncSlidersFromOverlay() {
   const overlay = state.overlayAlign;
   if (!overlay) return;
 
-  const scaleXPercent = clamp(Math.round(overlay.getScaleX() * 100), 5, 400);
-  const scaleYPercent = clamp(Math.round(overlay.getScaleY() * 100), 5, 400);
-  document.getElementById('scale-x-slider').value = scaleXPercent;
-  document.getElementById('scale-y-slider').value = scaleYPercent;
-  document.getElementById('scale-x-value').textContent = scaleXPercent + '%';
-  document.getElementById('scale-y-value').textContent = scaleYPercent + '%';
+  const scalePercent = clamp(Math.round(overlay.getScale() * 100), 10, 300);
+  document.getElementById('scale-slider').value = scalePercent;
+  document.getElementById('scale-value').textContent = scalePercent + '%';
 
   let deg = overlay.getRotationDeg() % 360;
   if (deg > 180) deg -= 360;
@@ -240,14 +237,8 @@ function updateAlignDebug() {
   const size = state.alignMap.getSize();
   el.textContent =
     `map=${size.x}x${size.y} cx=${Math.round(overlay.cx)} cy=${Math.round(overlay.cy)} ` +
-    `scaleX=${overlay.scaleX.toFixed(4)} scaleY=${overlay.scaleY.toFixed(4)} nat=${overlay.naturalWidth}x${overlay.naturalHeight} ` +
-    `opacity=${overlay.el.style.opacity} pointerEvents=${overlay.el.style.pointerEvents}`;
-}
-
-function setAlignMode(mode) {
-  document.getElementById('mode-btn-map').classList.toggle('active', mode === 'map');
-  document.getElementById('mode-btn-image').classList.toggle('active', mode === 'image');
-  state.overlayAlign?.setMode(mode);
+    `scale=${overlay.scaleX.toFixed(4)} nat=${overlay.naturalWidth}x${overlay.naturalHeight} ` +
+    `opacity=${overlay.el.style.opacity}`;
 }
 
 function initAlignTab() {
@@ -289,8 +280,6 @@ function initAlignTab() {
   ro.observe(wrapEl);
   state.alignResizeObserver = ro;
 
-  setAlignMode('map');
-
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -308,21 +297,13 @@ document.getElementById('basemap-select').addEventListener('change', (e) => {
   if (state.alignMap) setBasemapLayer(state.alignMap, e.target.value);
 });
 
-document.getElementById('mode-btn-map').addEventListener('click', () => setAlignMode('map'));
-document.getElementById('mode-btn-image').addEventListener('click', () => setAlignMode('image'));
-
 document.getElementById('opacity-slider').addEventListener('input', (e) => {
   state.overlayAlign?.setOpacity(e.target.value / 100);
   updateAlignDebug();
 });
-document.getElementById('scale-x-slider').addEventListener('input', (e) => {
-  state.overlayAlign?.setScaleX(e.target.value / 100);
-  document.getElementById('scale-x-value').textContent = e.target.value + '%';
-  updateAlignDebug();
-});
-document.getElementById('scale-y-slider').addEventListener('input', (e) => {
-  state.overlayAlign?.setScaleY(e.target.value / 100);
-  document.getElementById('scale-y-value').textContent = e.target.value + '%';
+document.getElementById('scale-slider').addEventListener('input', (e) => {
+  state.overlayAlign?.setScale(e.target.value / 100);
+  document.getElementById('scale-value').textContent = e.target.value + '%';
   updateAlignDebug();
 });
 document.getElementById('rotation-slider').addEventListener('input', (e) => {

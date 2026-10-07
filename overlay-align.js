@@ -15,10 +15,14 @@ class OverlayAlign {
     this.scaleY = 1; // Overlay-Höhe = naturalHeight * scaleY
     this.angle = 0; // Radiant
 
-    this.mode = 'map'; // 'map' | 'image'
     this.pointers = new Map();
     this.gestureStart = null;
 
+    // Immer interaktiv: Ziehen/Pinch direkt auf dem Bild bewegt/skaliert/dreht
+    // das Overlay; Ziehen daneben erreicht das Overlay gar nicht (DOM-Hit-Test)
+    // und geht normal an Leaflets eigene Karten-Steuerung durch. Kein
+    // Umschalten zwischen "Karte"/"Bild" nötig.
+    this.el.style.pointerEvents = 'auto';
     this.el.style.width = naturalWidth + 'px';
     this.el.style.height = naturalHeight + 'px';
 
@@ -31,23 +35,6 @@ class OverlayAlign {
     window.addEventListener('pointerup', (e) => this._onUp(e));
     window.addEventListener('pointercancel', (e) => this._onUp(e));
     this.el.addEventListener('wheel', (e) => this._onWheel(e), { passive: false });
-  }
-
-  setMode(mode) {
-    this.mode = mode;
-    const interactive = mode === 'image';
-    this.el.style.pointerEvents = interactive ? 'auto' : 'none';
-    if (interactive) {
-      this.map.dragging.disable();
-      this.map.scrollWheelZoom.disable();
-      this.map.touchZoom.disable();
-      this.map.doubleClickZoom.disable();
-    } else {
-      this.map.dragging.enable();
-      this.map.scrollWheelZoom.enable();
-      this.map.touchZoom.enable();
-      this.map.doubleClickZoom.enable();
-    }
   }
 
   // Platziert das Overlay zentriert im aktuellen Kartenausschnitt
@@ -85,6 +72,19 @@ class OverlayAlign {
     return this.scaleY;
   }
 
+  // Seitenverhältnistreue Skalierung (für den einzelnen "Größe"-Regler) –
+  // setzt Breite und Höhe gemeinsam, im aktuellen Verhältnis zueinander.
+  setScale(v) {
+    const ratio = this.scaleY / this.scaleX || 1;
+    this.scaleX = Math.max(0.02, v);
+    this.scaleY = Math.max(0.02, v * ratio);
+    this._render();
+  }
+
+  getScale() {
+    return this.scaleX;
+  }
+
   setRotationDeg(deg) {
     this.angle = (deg * Math.PI) / 180;
     this._render();
@@ -100,7 +100,6 @@ class OverlayAlign {
   }
 
   _onDown(e) {
-    if (this.mode !== 'image') return;
     this.el.setPointerCapture?.(e.pointerId);
     const pos = this._mapContainerPos(e.clientX, e.clientY);
     this.pointers.set(e.pointerId, pos);
@@ -182,11 +181,9 @@ class OverlayAlign {
   }
 
   _onWheel(e) {
-    if (this.mode !== 'image') return;
     e.preventDefault();
     const factor = Math.exp(-e.deltaY * 0.0015);
-    this.setScaleX(this.scaleX * factor);
-    this.setScaleY(this.scaleY * factor);
+    this.setScale(this.scaleX * factor);
     this._notifyChange();
   }
 
