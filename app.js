@@ -15,6 +15,7 @@ const state = {
   overlayAlign: null,
   currentTileLayer: null,
   manualPanzoomReady: false,
+  alignResizeObserver: null,
 };
 
 const BASEMAPS = {
@@ -202,6 +203,20 @@ function syncSlidersFromOverlay() {
   if (deg > 180) deg -= 360;
   if (deg < -180) deg += 360;
   document.getElementById('rotation-slider').value = deg.toFixed(1);
+  updateAlignDebug();
+}
+
+// Temporäre Diagnose-Anzeige, um Layout-Probleme ohne Browser-Konsole des
+// Testgeräts nachvollziehen zu können.
+function updateAlignDebug() {
+  const el = document.getElementById('align-debug');
+  const overlay = state.overlayAlign;
+  if (!el || !overlay || !state.alignMap) return;
+  const size = state.alignMap.getSize();
+  el.textContent =
+    `map=${size.x}x${size.y} cx=${Math.round(overlay.cx)} cy=${Math.round(overlay.cy)} ` +
+    `scale=${overlay.scale.toFixed(4)} nat=${overlay.naturalWidth}x${overlay.naturalHeight} ` +
+    `opacity=${overlay.el.style.opacity} pointerEvents=${overlay.el.style.pointerEvents}`;
 }
 
 function setAlignMode(mode) {
@@ -228,12 +243,26 @@ function initAlignTab() {
   overlay.setOpacity(document.getElementById('opacity-slider').value / 100);
   overlay.onChange = syncSlidersFromOverlay;
   state.overlayAlign = overlay;
+  updateAlignDebug();
 
-  requestAnimationFrame(() => {
+  // Auf dem Handy steht die endgültige Höhe des Kartenbereichs (Adressleiste
+  // ein-/ausblenden, Layout-Reflow) oft erst nach dem ersten Frame fest. Statt
+  // blind zu raten, warten wir auf die tatsächliche, stabile Containergröße,
+  // bevor Karte und Overlay initial platziert werden.
+  if (state.alignResizeObserver) state.alignResizeObserver.disconnect();
+  const wrapEl = document.querySelector('#tab-align .map-align-wrap');
+  let placedInitially = false;
+  const ro = new ResizeObserver(() => {
     map.invalidateSize();
-    overlay.reset();
-    syncSlidersFromOverlay();
+    const size = map.getSize();
+    if (!placedInitially && size.x > 0 && size.y > 0) {
+      placedInitially = true;
+      overlay.reset();
+      syncSlidersFromOverlay();
+    }
   });
+  ro.observe(wrapEl);
+  state.alignResizeObserver = ro;
 
   setAlignMode('map');
 
@@ -259,12 +288,15 @@ document.getElementById('mode-btn-image').addEventListener('click', () => setAli
 
 document.getElementById('opacity-slider').addEventListener('input', (e) => {
   state.overlayAlign?.setOpacity(e.target.value / 100);
+  updateAlignDebug();
 });
 document.getElementById('scale-slider').addEventListener('input', (e) => {
   state.overlayAlign?.setScale(e.target.value / 100);
+  updateAlignDebug();
 });
 document.getElementById('rotation-slider').addEventListener('input', (e) => {
   state.overlayAlign?.setRotationDeg(parseFloat(e.target.value));
+  updateAlignDebug();
 });
 
 document.getElementById('btn-locate-me').addEventListener('click', () => {
@@ -286,6 +318,10 @@ document.getElementById('btn-confirm-align').addEventListener('click', () => {
 });
 
 function teardownCalibration() {
+  if (state.alignResizeObserver) {
+    state.alignResizeObserver.disconnect();
+    state.alignResizeObserver = null;
+  }
   if (state.alignMap) {
     state.alignMap.remove();
     state.alignMap = null;

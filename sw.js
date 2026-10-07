@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'georef-standort-v2';
+const CACHE_NAME = 'georef-standort-v5';
 const PRECACHE_URLS = [
   './',
   './index.html',

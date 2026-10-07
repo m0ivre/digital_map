@@ -231,12 +231,18 @@ body { display: flex; flex-direction: column; }
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 }
-#align-map { position: absolute; inset: 0; background: #ddd; }
+/* z-index:0 zwingt Leaflet, seine eigenen internen z-index-Werte (Kacheln,
+   Steuerelemente) in einen eigenen Stacking-Context einzusperren – sonst
+   "entkommen" die nach oben und legen sich über das Overlay, unabhängig
+   von der Reihenfolge im HTML. */
+#align-map { position: absolute; inset: 0; background: #ddd; z-index: 0; }
 .align-overlay {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 10;
   opacity: 0.6;
   pointer-events: none;
   transform-origin: center center;
@@ -269,6 +275,7 @@ body { display: flex; flex-direction: column; }
 .slider-row input[type="range"] { width: 100%; }
 .mode-toggle { display: flex; gap: 8px; }
 .mode-toggle .btn { flex: 1; }
+.debug-text { font-family: monospace; font-size: 0.7rem; color: var(--text-dim); word-break: break-all; margin: 0; }
 
 dialog {
   border: none;

@@ -41,6 +41,9 @@ const server = https.createServer(
     cert: fs.readFileSync(CERT_PATH),
   },
   (req, res) => {
+    const remote = req.socket.remoteAddress + ':' + req.socket.remotePort;
+    console.log(`[req] ${remote} ${req.method} ${req.url}`);
+
     let urlPath = decodeURIComponent(req.url.split('?')[0]);
     if (urlPath === '/') urlPath = '/index.html';
 
@@ -53,6 +56,7 @@ const server = https.createServer(
 
     fs.readFile(filePath, (err, data) => {
       if (err) {
+        console.log(`[404] ${remote} ${urlPath}`);
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('Nicht gefunden: ' + urlPath);
         return;
@@ -66,6 +70,20 @@ const server = https.createServer(
     });
   }
 );
+
+server.on('tlsClientError', (err, socket) => {
+  const remote = socket.remoteAddress + ':' + socket.remotePort;
+  console.log(`[tlsClientError] ${remote} ${err.message}`);
+});
+server.on('clientError', (err, socket) => {
+  const remote = socket.remoteAddress ? socket.remoteAddress + ':' + socket.remotePort : '?';
+  console.log(`[clientError] ${remote} ${err.message}`);
+});
+server.on('connection', (socket) => {
+  console.log(`[tcp connect] ${socket.remoteAddress}:${socket.remotePort}`);
+  socket.on('error', (err) => console.log(`[socket error] ${socket.remoteAddress}:${socket.remotePort} ${err.message}`));
+  socket.on('close', (hadError) => console.log(`[tcp close] ${socket.remoteAddress}:${socket.remotePort} hadError=${hadError}`));
+});
 
 server.listen(PORT, '0.0.0.0', () => {
   const addresses = [];
