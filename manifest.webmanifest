@@ -1,0 +1,15 @@
+{
+  "name": "GeoRef Standort",
+  "short_name": "GeoRef",
+  "description": "Fotos oder PDFs auf einer Karte georeferenzieren und den eigenen Standort live darauf anzeigen.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "any",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

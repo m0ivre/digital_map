@@ -1,0 +1,434 @@
+'use strict';
+
+// ---------- Globaler Zustand ----------
+const state = {
+  screen: 'home',
+  currentMap: null, // vollständiger DB-Record der aktuell offenen Karte
+  pendingImport: null, // { blob, url, width, height }
+  calibrationPoints: [], // [{px, py, lat, lon, accuracy}]
+  pendingPin: null, // { px, py } wartet auf Koordinateneingabe
+  panzoom: null,
+  watchId: null,
+  follow: true,
+  objectUrls: [],
+};
+
+const screens = {
+  home: document.getElementById('screen-home'),
+  import: document.getElementById('screen-import'),
+  calibrate: document.getElementById('screen-calibrate'),
+  view: document.getElementById('screen-view'),
+};
+
+function showScreen(name) {
+  for (const key of Object.keys(screens)) {
+    screens[key].classList.toggle('active', key === name);
+  }
+  state.screen = name;
+  if (name !== 'view') stopWatching();
+}
+
+function trackObjectUrl(url) {
+  state.objectUrls.push(url);
+  return url;
+}
+
+function revokeTrackedUrls() {
+  for (const url of state.objectUrls) URL.revokeObjectURL(url);
+  state.objectUrls = [];
+}
+
+// ---------- Home-Screen: Kartenliste ----------
+async function renderHome() {
+  const list = document.getElementById('map-list');
+  list.innerHTML = '';
+  const maps = await getAllMaps();
+  maps.sort((a, b) => b.createdAt - a.createdAt);
+
+  if (maps.length === 0) {
+    document.getElementById('map-list-empty').style.display = 'block';
+  } else {
+    document.getElementById('map-list-empty').style.display = 'none';
+  }
+
+  for (const map of maps) {
+    const li = document.createElement('li');
+    li.className = 'map-item';
+
+    const thumbUrl = trackObjectUrl(URL.createObjectURL(map.imageBlob));
+    li.innerHTML = `
+      <img class="map-thumb" src="${thumbUrl}" alt="">
+      <div class="map-item-info">
+        <div class="map-item-name">${escapeHtml(map.name)}</div>
+        <div class="map-item-meta">${map.calibrationPoints.length} Referenzpunkte · ${new Date(map.createdAt).toLocaleDateString('de-DE')}</div>
+      </div>
+      <button class="icon-btn danger" data-action="delete" title="Löschen">🗑</button>
+    `;
+    li.addEventListener('click', (e) => {
+      if (e.target.closest('[data-action="delete"]')) return;
+      openMap(map.id);
+    });
+    li.querySelector('[data-action="delete"]').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (confirm(`"${map.name}" wirklich löschen?`)) {
+        await deleteMap(map.id);
+        renderHome();
+      }
+    });
+    list.appendChild(li);
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---------- Import-Screen ----------
+function resetImportScreen() {
+  state.pendingImport = null;
+  state.calibrationPoints = [];
+  state.pendingPin = null;
+  document.getElementById('import-status').textContent = '';
+  document.getElementById('file-input').value = '';
+  document.getElementById('camera-input').value = '';
+}
+
+document.getElementById('btn-new-map').addEventListener('click', () => {
+  resetImportScreen();
+  showScreen('import');
+});
+
+document.getElementById('btn-import-cancel').addEventListener('click', () => {
+  showScreen('home');
+});
+
+async function handleFileSelected(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('import-status');
+  statusEl.textContent = 'Wird verarbeitet…';
+  try {
+    const { blob, width, height } = await fileToImageBlob(file);
+    const url = trackObjectUrl(URL.createObjectURL(blob));
+    state.pendingImport = { blob, url, width, height };
+    statusEl.textContent = '';
+    beginCalibration();
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = 'Fehler beim Importieren: ' + err.message;
+  }
+}
+
+document.getElementById('file-input').addEventListener('change', (e) => {
+  handleFileSelected(e.target.files[0]);
+});
+document.getElementById('camera-input').addEventListener('change', (e) => {
+  handleFileSelected(e.target.files[0]);
+});
+
+// ---------- Kalibrierungs-Screen ----------
+function beginCalibration() {
+  state.calibrationPoints = [];
+  state.pendingPin = null;
+  renderCalibrationPointList();
+  showScreen('calibrate');
+
+  const viewport = document.getElementById('calibrate-viewport');
+  const pannable = document.getElementById('calibrate-pannable');
+  const img = document.getElementById('calibrate-image');
+
+  img.src = state.pendingImport.url;
+  pannable.style.width = state.pendingImport.width + 'px';
+  pannable.style.height = state.pendingImport.height + 'px';
+  pannable.dataset.naturalWidth = state.pendingImport.width;
+  pannable.dataset.naturalHeight = state.pendingImport.height;
+  clearPinElements(pannable);
+
+  const pz = new PanZoom(viewport, pannable, { minScale: 0.05, maxScale: 12 });
+  pz.fit(state.pendingImport.width, state.pendingImport.height);
+  pz.onTap = (clientX, clientY) => {
+    const { x, y } = pz.clientToNatural(clientX, clientY);
+    openPinDialog(x, y);
+  };
+  state.panzoom = pz;
+}
+
+function clearPinElements(pannable) {
+  pannable.querySelectorAll('.pin').forEach((el) => el.remove());
+}
+
+function addPinMarker(pannable, x, y, label) {
+  const pin = document.createElement('div');
+  pin.className = 'pin';
+  pin.style.left = x + 'px';
+  pin.style.top = y + 'px';
+  pin.innerHTML = `<span>${label}</span>`;
+  pannable.appendChild(pin);
+  return pin;
+}
+
+function renderCalibrationPointList() {
+  const pannable = document.getElementById('calibrate-pannable');
+  clearPinElements(pannable);
+  state.calibrationPoints.forEach((p, i) => addPinMarker(pannable, p.px, p.py, i + 1));
+
+  const listEl = document.getElementById('calibration-points');
+  listEl.innerHTML = '';
+  state.calibrationPoints.forEach((p, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>#${i + 1}: ${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}</span>
+      <button class="icon-btn" data-idx="${i}" title="Entfernen">✕</button>`;
+    li.querySelector('button').addEventListener('click', () => {
+      state.calibrationPoints.splice(i, 1);
+      renderCalibrationPointList();
+      updateSaveButtonState();
+    });
+    listEl.appendChild(li);
+  });
+  updateSaveButtonState();
+}
+
+function updateSaveButtonState() {
+  const btn = document.getElementById('btn-save-map');
+  btn.disabled = state.calibrationPoints.length < 2;
+  const hint = document.getElementById('calibration-hint');
+  if (state.calibrationPoints.length < 2) {
+    hint.textContent = `Noch ${2 - state.calibrationPoints.length} Referenzpunkt(e) nötig (mind. 2, besser 3+ für höhere Genauigkeit).`;
+  } else {
+    hint.textContent = `${state.calibrationPoints.length} Referenzpunkte erfasst. Weitere Punkte verbessern die Genauigkeit.`;
+  }
+}
+
+function openPinDialog(px, py) {
+  state.pendingPin = { px, py };
+  const dialog = document.getElementById('pin-dialog');
+  document.getElementById('pin-lat').value = '';
+  document.getElementById('pin-lon').value = '';
+  document.getElementById('pin-gps-status').textContent = '';
+  dialog.showModal();
+}
+
+document.getElementById('pin-dialog-cancel').addEventListener('click', () => {
+  document.getElementById('pin-dialog').close();
+  state.pendingPin = null;
+});
+
+document.getElementById('btn-use-gps').addEventListener('click', async () => {
+  const statusEl = document.getElementById('pin-gps-status');
+  if (!navigator.geolocation) {
+    statusEl.textContent = 'Geolocation wird nicht unterstützt.';
+    return;
+  }
+  statusEl.textContent = 'Ermittle Standort…';
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      document.getElementById('pin-lat').value = pos.coords.latitude.toFixed(7);
+      document.getElementById('pin-lon').value = pos.coords.longitude.toFixed(7);
+      statusEl.textContent = `Standort erfasst (Genauigkeit ±${Math.round(pos.coords.accuracy)} m)`;
+    },
+    (err) => {
+      statusEl.textContent = 'Standort nicht verfügbar: ' + err.message;
+    },
+    { enableHighAccuracy: true, timeout: 15000 }
+  );
+});
+
+document.getElementById('pin-dialog-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const lat = parseFloat(document.getElementById('pin-lat').value);
+  const lon = parseFloat(document.getElementById('pin-lon').value);
+  if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+  state.calibrationPoints.push({ px: state.pendingPin.px, py: state.pendingPin.py, lat, lon });
+  state.pendingPin = null;
+  document.getElementById('pin-dialog').close();
+  renderCalibrationPointList();
+});
+
+document.getElementById('btn-calibrate-cancel').addEventListener('click', () => {
+  if (confirm('Kalibrierung verwerfen?')) {
+    revokeCurrentImport();
+    showScreen('home');
+  }
+});
+
+document.getElementById('btn-calibrate-fit').addEventListener('click', () => {
+  state.panzoom?.fit(state.pendingImport.width, state.pendingImport.height);
+});
+
+function revokeCurrentImport() {
+  state.pendingImport = null;
+}
+
+document.getElementById('btn-save-map').addEventListener('click', async () => {
+  if (state.calibrationPoints.length < 2) return;
+  const name = prompt('Name für diese Karte:', 'Karte ' + new Date().toLocaleDateString('de-DE'));
+  if (!name) return;
+
+  const transform = buildTransformFromPoints(state.calibrationPoints);
+  const record = {
+    id: makeId(),
+    name,
+    imageBlob: state.pendingImport.blob,
+    width: state.pendingImport.width,
+    height: state.pendingImport.height,
+    calibrationPoints: state.calibrationPoints,
+    transform,
+    createdAt: Date.now(),
+  };
+  await saveMap(record);
+  revokeCurrentImport();
+  showScreen('home');
+  renderHome();
+});
+
+// ---------- Ansichts-Screen (Live-Standort) ----------
+async function openMap(id) {
+  const record = await getMap(id);
+  if (!record) return;
+  state.currentMap = record;
+  showScreen('view');
+
+  document.getElementById('view-title').textContent = record.name;
+
+  const viewport = document.getElementById('view-viewport');
+  const pannable = document.getElementById('view-pannable');
+  const img = document.getElementById('view-image');
+
+  const url = trackObjectUrl(URL.createObjectURL(record.imageBlob));
+  img.src = url;
+  pannable.style.width = record.width + 'px';
+  pannable.style.height = record.height + 'px';
+  pannable.dataset.naturalWidth = record.width;
+  pannable.dataset.naturalHeight = record.height;
+
+  const marker = document.getElementById('you-are-here');
+  const accuracyCircle = document.getElementById('accuracy-circle');
+  marker.style.display = 'none';
+  accuracyCircle.style.display = 'none';
+
+  const pz = new PanZoom(viewport, pannable, { minScale: 0.05, maxScale: 12 });
+  pz.fit(record.width, record.height);
+  state.panzoom = pz;
+
+  state.follow = true;
+  updateFollowButton();
+  document.getElementById('view-status').textContent = 'Suche GPS-Signal…';
+  startWatching(record);
+}
+
+function updateFollowButton() {
+  const btn = document.getElementById('btn-follow');
+  btn.textContent = state.follow ? '📍 Folgen: An' : '📍 Folgen: Aus';
+  btn.classList.toggle('active', state.follow);
+}
+
+document.getElementById('btn-follow').addEventListener('click', () => {
+  state.follow = !state.follow;
+  updateFollowButton();
+});
+
+document.getElementById('btn-view-fit').addEventListener('click', () => {
+  state.panzoom?.fit(state.currentMap.width, state.currentMap.height);
+});
+
+document.getElementById('btn-view-back').addEventListener('click', () => {
+  showScreen('home');
+  renderHome();
+});
+
+document.getElementById('btn-view-delete').addEventListener('click', async () => {
+  if (confirm(`"${state.currentMap.name}" wirklich löschen?`)) {
+    await deleteMap(state.currentMap.id);
+    showScreen('home');
+    renderHome();
+  }
+});
+
+function startWatching(record) {
+  stopWatching();
+  if (!navigator.geolocation) {
+    document.getElementById('view-status').textContent = 'Geolocation wird von diesem Browser nicht unterstützt.';
+    return;
+  }
+  state.watchId = navigator.geolocation.watchPosition(
+    (pos) => onPosition(record, pos),
+    (err) => {
+      document.getElementById('view-status').textContent = 'Standortfehler: ' + describeGeoError(err);
+    },
+    { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 }
+  );
+}
+
+function stopWatching() {
+  if (state.watchId !== null) {
+    navigator.geolocation.clearWatch(state.watchId);
+    state.watchId = null;
+  }
+}
+
+function describeGeoError(err) {
+  switch (err.code) {
+    case err.PERMISSION_DENIED:
+      return 'Standortzugriff wurde verweigert. Bitte in den Browser-/System-Einstellungen erlauben.';
+    case err.POSITION_UNAVAILABLE:
+      return 'Standort momentan nicht bestimmbar.';
+    case err.TIMEOUT:
+      return 'Zeitüberschreitung bei der Standortermittlung.';
+    default:
+      return err.message;
+  }
+}
+
+function onPosition(record, pos) {
+  const { px, py } = applyTransform(record.transform, pos.coords.latitude, pos.coords.longitude);
+  const ppm = pixelsPerMeter(record.transform);
+  const radiusPx = (pos.coords.accuracy || 0) * ppm;
+
+  const marker = document.getElementById('you-are-here');
+  const accuracyCircle = document.getElementById('accuracy-circle');
+
+  marker.style.left = px + 'px';
+  marker.style.top = py + 'px';
+  marker.style.display = 'block';
+
+  accuracyCircle.style.left = px + 'px';
+  accuracyCircle.style.top = py + 'px';
+  accuracyCircle.style.width = radiusPx * 2 + 'px';
+  accuracyCircle.style.height = radiusPx * 2 + 'px';
+  accuracyCircle.style.display = radiusPx > 2 ? 'block' : 'none';
+
+  const inside = px >= 0 && py >= 0 && px <= record.width && py <= record.height;
+  document.getElementById('view-status').textContent = inside
+    ? `Standort aktiv · Genauigkeit ±${Math.round(pos.coords.accuracy)} m`
+    : `Außerhalb des kartierten Bereichs · Genauigkeit ±${Math.round(pos.coords.accuracy)} m`;
+
+  if (state.follow && state.panzoom) {
+    state.panzoom.centerOn(px, py);
+  }
+}
+
+// ---------- PWA: Service Worker & Installation ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch((err) => console.warn('SW-Registrierung fehlgeschlagen:', err));
+  });
+}
+
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('btn-install').style.display = 'inline-flex';
+});
+
+document.getElementById('btn-install').addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById('btn-install').style.display = 'none';
+});
+
+// ---------- Start ----------
+renderHome();

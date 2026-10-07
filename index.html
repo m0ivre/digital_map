@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>GeoRef Standort</title>
+  <meta name="description" content="Fotos oder PDFs auf einer Karte georeferenzieren und den eigenen Standort live darauf anzeigen." />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ===== HOME: Kartenliste ===== -->
+  <section id="screen-home" class="screen active">
+    <header class="app-header">
+      <h1>Meine Karten</h1>
+      <button id="btn-install" class="btn secondary" style="display:none">App installieren</button>
+    </header>
+    <main class="content">
+      <p id="map-list-empty" class="empty-hint">
+        Noch keine Karte angelegt. Importiere ein Foto oder PDF einer Karte/eines Lageplans
+        und markiere darauf mindestens zwei Punkte mit bekannten GPS-Koordinaten.
+        Danach siehst du deinen Standort live auf dem Bild.
+      </p>
+      <ul id="map-list" class="map-list"></ul>
+    </main>
+    <footer class="bottom-bar">
+      <button id="btn-new-map" class="btn primary full">+ Neue Karte</button>
+    </footer>
+  </section>
+
+  <!-- ===== IMPORT: Quelle wählen ===== -->
+  <section id="screen-import" class="screen">
+    <header class="app-header">
+      <button id="btn-import-cancel" class="icon-btn" title="Abbrechen">←</button>
+      <h1>Karte importieren</h1>
+    </header>
+    <main class="content centered">
+      <p>Wähle ein Foto, Bild oder PDF eines Lageplans/einer Karte.</p>
+
+      <label class="btn primary full" for="camera-input">📷 Mit Kamera aufnehmen</label>
+      <input id="camera-input" type="file" accept="image/*" capture="environment" hidden />
+
+      <label class="btn secondary full" for="file-input">🖼 Datei auswählen (Bild/PDF)</label>
+      <input id="file-input" type="file" accept="image/*,application/pdf" hidden />
+
+      <p id="import-status" class="status-text"></p>
+    </main>
+  </section>
+
+  <!-- ===== KALIBRIERUNG ===== -->
+  <section id="screen-calibrate" class="screen">
+    <header class="app-header">
+      <button id="btn-calibrate-cancel" class="icon-btn" title="Abbrechen">←</button>
+      <h1>Referenzpunkte setzen</h1>
+      <button id="btn-calibrate-fit" class="icon-btn" title="Einpassen">⤢</button>
+    </header>
+    <main class="content no-pad">
+      <div class="map-viewport" id="calibrate-viewport">
+        <div class="map-pannable" id="calibrate-pannable">
+          <img id="calibrate-image" alt="Importierte Karte" draggable="false" />
+        </div>
+      </div>
+    </main>
+    <div class="calibration-panel">
+      <p class="hint" id="calibration-hint">Tippe auf einen markanten Punkt im Bild und ordne ihm reale GPS-Koordinaten zu.</p>
+      <ul id="calibration-points" class="point-list"></ul>
+      <button id="btn-save-map" class="btn primary full" disabled>Karte speichern</button>
+    </div>
+  </section>
+
+  <!-- ===== LIVE-ANSICHT ===== -->
+  <section id="screen-view" class="screen">
+    <header class="app-header">
+      <button id="btn-view-back" class="icon-btn" title="Zurück">←</button>
+      <h1 id="view-title">Karte</h1>
+      <button id="btn-view-delete" class="icon-btn danger" title="Karte löschen">🗑</button>
+    </header>
+    <main class="content no-pad">
+      <div class="map-viewport" id="view-viewport">
+        <div class="map-pannable" id="view-pannable">
+          <img id="view-image" alt="Karte" draggable="false" />
+          <div id="accuracy-circle" class="accuracy-circle"></div>
+          <div id="you-are-here" class="you-are-here" title="Mein Standort"></div>
+        </div>
+      </div>
+    </main>
+    <footer class="bottom-bar view-bar">
+      <div id="view-status" class="status-text">Bereit.</div>
+      <div class="button-row">
+        <button id="btn-view-fit" class="btn secondary">⤢ Einpassen</button>
+        <button id="btn-follow" class="btn secondary active">📍 Folgen: An</button>
+      </div>
+    </footer>
+  </section>
+
+  <!-- ===== Dialog: Koordinaten für Referenzpunkt ===== -->
+  <dialog id="pin-dialog">
+    <form id="pin-dialog-form" method="dialog">
+      <h2>Koordinaten für diesen Punkt</h2>
+      <button type="button" id="btn-use-gps" class="btn secondary full">📡 Aktuellen GPS-Standort verwenden</button>
+      <p id="pin-gps-status" class="status-text"></p>
+      <div class="field-row">
+        <label>Breitengrad (Latitude)
+          <input id="pin-lat" type="number" step="any" inputmode="decimal" required />
+        </label>
+        <label>Längengrad (Longitude)
+          <input id="pin-lon" type="number" step="any" inputmode="decimal" required />
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="pin-dialog-cancel" class="btn secondary">Abbrechen</button>
+        <button type="submit" class="btn primary">Punkt hinzufügen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="geo.js"></script>
+  <script src="db.js"></script>
+  <script src="panzoom.js"></script>
+  <script src="pdf-import.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
