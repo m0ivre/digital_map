@@ -82,7 +82,7 @@ class OverlayAlign {
   }
 
   getScale() {
-    return this.scaleX;
+    return (this.scaleX + this.scaleY) / 2;
   }
 
   setRotationDeg(deg) {

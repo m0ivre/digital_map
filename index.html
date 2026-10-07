@@ -88,11 +88,29 @@
         </label>
 
         <div class="precision-row">
-          <div class="precision-label"><span>Größe</span><span class="precision-value" id="scale-value">100%</span></div>
+          <div class="precision-label"><span>Gesamtgröße</span><span class="precision-value" id="scale-value">100%</span></div>
           <div class="precision-slider">
             <button class="nudge-btn" data-slider="scale-slider" data-delta="-1" title="Etwas kleiner">−</button>
-            <input type="range" id="scale-slider" min="10" max="300" value="100" step="1" />
+            <input type="range" id="scale-slider" min="10" max="300" value="100" step="5" />
             <button class="nudge-btn" data-slider="scale-slider" data-delta="1" title="Etwas größer">+</button>
+          </div>
+        </div>
+
+        <div class="precision-row">
+          <div class="precision-label"><span>Länge</span><span class="precision-value" id="scale-y-value">100%</span></div>
+          <div class="precision-slider">
+            <button class="nudge-btn" data-slider="scale-y-slider" data-delta="-1" title="Etwas kürzer">−</button>
+            <input type="range" id="scale-y-slider" min="10" max="300" value="100" step="5" />
+            <button class="nudge-btn" data-slider="scale-y-slider" data-delta="1" title="Etwas länger">+</button>
+          </div>
+        </div>
+
+        <div class="precision-row">
+          <div class="precision-label"><span>Breite</span><span class="precision-value" id="scale-x-value">100%</span></div>
+          <div class="precision-slider">
+            <button class="nudge-btn" data-slider="scale-x-slider" data-delta="-1" title="Etwas schmaler">−</button>
+            <input type="range" id="scale-x-slider" min="10" max="300" value="100" step="5" />
+            <button class="nudge-btn" data-slider="scale-x-slider" data-delta="1" title="Etwas breiter">+</button>
           </div>
         </div>
 

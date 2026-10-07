@@ -202,6 +202,14 @@ function syncSlidersFromOverlay() {
   document.getElementById('scale-slider').value = scalePercent;
   document.getElementById('scale-value').textContent = scalePercent + '%';
 
+  const scaleYPercent = clamp(Math.round(overlay.getScaleY() * 100), 10, 300);
+  document.getElementById('scale-y-slider').value = scaleYPercent;
+  document.getElementById('scale-y-value').textContent = scaleYPercent + '%';
+
+  const scaleXPercent = clamp(Math.round(overlay.getScaleX() * 100), 10, 300);
+  document.getElementById('scale-x-slider').value = scaleXPercent;
+  document.getElementById('scale-x-value').textContent = scaleXPercent + '%';
+
   let deg = overlay.getRotationDeg() % 360;
   if (deg > 180) deg -= 360;
   if (deg < -180) deg += 360;
@@ -303,13 +311,19 @@ document.getElementById('opacity-slider').addEventListener('input', (e) => {
 });
 document.getElementById('scale-slider').addEventListener('input', (e) => {
   state.overlayAlign?.setScale(e.target.value / 100);
-  document.getElementById('scale-value').textContent = e.target.value + '%';
-  updateAlignDebug();
+  syncSlidersFromOverlay();
+});
+document.getElementById('scale-y-slider').addEventListener('input', (e) => {
+  state.overlayAlign?.setScaleY(e.target.value / 100);
+  syncSlidersFromOverlay();
+});
+document.getElementById('scale-x-slider').addEventListener('input', (e) => {
+  state.overlayAlign?.setScaleX(e.target.value / 100);
+  syncSlidersFromOverlay();
 });
 document.getElementById('rotation-slider').addEventListener('input', (e) => {
   state.overlayAlign?.setRotationDeg(parseFloat(e.target.value));
-  document.getElementById('rotation-value').textContent = parseFloat(e.target.value).toFixed(1) + '°';
-  updateAlignDebug();
+  syncSlidersFromOverlay();
 });
 
 document.getElementById('btn-locate-me').addEventListener('click', () => {
